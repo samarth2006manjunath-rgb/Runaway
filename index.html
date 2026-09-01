@@ -621,6 +621,27 @@ a:hover { color: var(--color-accent-200); }
                   <div style="padding:11px 13px;border-radius:8px;background:#2a2231;box-shadow:inset 0 0 0 1px #6d405d;margin-bottom:18px;font-size:12.5px;color:#e7b8d4">{{ connectionError }}</div>
                 </sc-if>
 
+                <div style="padding:22px;border-radius:12px;background:#1e2030;box-shadow:inset 0 0 0 1px #2b2e3b;margin-bottom:18px">
+                  <div style="display:flex;align-items:center;gap:14px">
+                    <div style="flex:none;width:36px;height:36px;border-radius:8px;background:#20283a;display:flex;align-items:center;justify-content:center">
+                      <i class="ph ph-calendar-dots" style="font-size:19px;color:#8ab4f8"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font:500 16px var(--font-heading);margin-bottom:3px">Google Calendar</div>
+                      <div style="font-size:12px;color:var(--color-neutral-500)">{{ googleCalendarStatus }}</div>
+                    </div>
+                    <sc-if value="{{ googleCalendarOff }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ connectGoogleCalendar }}" style="font:500 12px var(--font-heading);padding:8px 14px;border-radius:6px;cursor:pointer;background:transparent;border:1px solid #5686c2;color:#a8c7fa">Connect Google Calendar</button>
+                    </sc-if>
+                    <sc-if value="{{ googleCalendarOn }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;gap:8px">
+                        <button onClick="{{ syncGoogleCalendar }}" style="font:500 12px var(--font-heading);padding:8px 14px;border-radius:6px;cursor:pointer;background:transparent;border:1px solid #5686c2;color:#a8c7fa">Sync now</button>
+                        <button onClick="{{ disconnectGoogleCalendar }}" style="font:500 12px var(--font-heading);padding:8px 14px;border-radius:6px;cursor:pointer;background:transparent;border:1px solid #3f424d;color:var(--color-neutral-500)">Disconnect</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+
                 <!-- state: not connected -->
                 <sc-if value="{{ connOff }}" hint-placeholder-val="{{ true }}">
                   <div style="padding:26px;border-radius:12px;background:linear-gradient(180deg,#1f2130 0%,#1c1e2b 100%);box-shadow:inset 0 0 0 1px #2b2e3b;margin-bottom:18px">
@@ -1555,11 +1576,13 @@ a:hover { color: var(--color-accent-200); }
 class Component extends DCLogic {
   state = { screen: 'today', layout: null, density: null, thread: 'cs1', filter: 'Needs action',
             conn: 'off', school: null, schoolHostInput: '', importing: 0, askDisconnect: false,
-            courseSync: {}, connectionError: '' };
+            courseSync: {}, connectionError: '', googleCalendarConnected: false, googleEvents: [], googleCalendars: [] };
 
   async componentDidMount() {
     const requested = new URLSearchParams(location.search).get('blackboard');
+    const googleRequested = new URLSearchParams(location.search).get('googleCalendar');
     if (requested === 'error') this.setState({ screen: 'settings', connectionError: 'Blackboard did not complete authorization. Please try again.' });
+    if (googleRequested === 'error') this.setState({ screen: 'settings', connectionError: 'Google Calendar did not complete authorization. Please try again.' });
     try {
       const response = await fetch('/api/blackboard/status');
       const status = await response.json();
@@ -1572,6 +1595,16 @@ class Component extends DCLogic {
     } catch (_) {
       this.setState({ connectionError: 'The Blackboard backend is unavailable.' });
     }
+    try {
+      const response = await fetch('/api/google-calendar/status');
+      const status = await response.json();
+      if (status.connected) {
+        const dataResponse = await fetch('/api/google-calendar/data');
+        const data = await dataResponse.json();
+        this.setState({ screen: googleRequested ? 'settings' : this.state.screen, googleCalendarConnected: true,
+          googleCalendarSyncedAt: status.syncedAt, googleEvents: data.events || [], googleCalendars: data.calendars || [] });
+      }
+    } catch (_) {}
   }
 
   setConn(step, extra) { this.setState({ conn: step, ...(extra || {}) }); }
@@ -1610,6 +1643,33 @@ class Component extends DCLogic {
     } catch (error) {
       this.setState({ connectionError: error.message });
     }
+  }
+
+  async connectGoogleCalendar() {
+    try {
+      const response = await fetch('/api/google-calendar/connect', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not start Google authorization');
+      location.assign(result.authorizationUrl);
+    } catch (error) { this.setState({ connectionError: error.message, screen: 'settings' }); }
+  }
+
+  async syncGoogleCalendar() {
+    try {
+      const response = await fetch('/api/google-calendar/sync', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Google Calendar sync failed');
+      this.setState({ googleCalendarConnected: true, googleCalendarSyncedAt: result.syncedAt,
+        googleEvents: result.snapshot?.events || [], googleCalendars: result.snapshot?.calendars || [], connectionError: '' });
+    } catch (error) { this.setState({ connectionError: error.message, screen: 'settings' }); }
+  }
+
+  async disconnectGoogleCalendar() {
+    try {
+      const response = await fetch('/api/google-calendar/connection', { method: 'DELETE' });
+      if (!response.ok) throw new Error('Could not disconnect Google Calendar');
+      this.setState({ googleCalendarConnected: false, googleCalendarSyncedAt: null, googleEvents: [], googleCalendars: [] });
+    } catch (error) { this.setState({ connectionError: error.message, screen: 'settings' }); }
   }
 
   componentWillUnmount() { clearInterval(this._imp); }
@@ -1770,6 +1830,14 @@ class Component extends DCLogic {
       schoolPicked: !!host, noSchool: !host, connectionError: S.connectionError || '',
       bbUserLabel: S.bbUser?.contact?.email || S.bbUser?.userName || S.bbUser?.name?.given || 'Blackboard user',
       syncStatus: S.syncedAt ? `Last synced ${new Date(S.syncedAt).toLocaleString()}` : 'Ready to sync',
+      googleCalendarOff: !S.googleCalendarConnected,
+      googleCalendarOn: !!S.googleCalendarConnected,
+      googleCalendarStatus: S.googleCalendarConnected
+        ? `${S.googleCalendars.length} calendars · ${S.googleEvents.length} events · last synced ${new Date(S.googleCalendarSyncedAt).toLocaleString()}`
+        : 'Read-only access; events appear in Today and Week after you approve access on Google.',
+      connectGoogleCalendar: () => this.connectGoogleCalendar(),
+      syncGoogleCalendar: () => this.syncGoogleCalendar(),
+      disconnectGoogleCalendar: () => this.disconnectGoogleCalendar(),
       importPct: Math.round((S.importing / 5) * 100),
       goSettings: () => this.setState({ screen: 'settings' }),
       goCourses: () => this.setState({ screen: 'courses' }),
@@ -1987,12 +2055,26 @@ class Component extends DCLogic {
       .map(e => ({ kind: 'mine', time: e.time, title: e.title, sub: e.kind + ' · ' + e.dur,
         row: rowOf[e.time] || 17, span: spanOf[e.dur] || 2 }));
 
+    const googleFor = (dow, dom) => (S.googleEvents || []).filter(event => {
+      const start = new Date(event.start);
+      return !Number.isNaN(start.getTime()) && start.getDate() === Number(dom) &&
+        start.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() === dow.slice(0, 3);
+    }).map(event => {
+      const start = new Date(event.start);
+      const end = event.end ? new Date(event.end) : new Date(start.getTime() + 3600_000);
+      const minutes = start.getHours() * 60 + start.getMinutes();
+      return { kind: 'google', title: event.title, sub: event.calendar + (event.location ? ` · ${event.location}` : ''),
+        time: event.allDay ? 'All day' : start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        row: event.allDay ? 1 : Math.max(1, Math.min(26, 1 + Math.round((minutes - 480) / 30))),
+        span: event.allDay ? 1 : Math.max(1, Math.min(26, Math.round((end - start) / 1800_000))) };
+    });
+
     const week = this.weekData().map(day => ({
       ...day,
-      events: [...day.events, ...mineFor(day.dow, day.dom)],
+      events: [...day.events, ...mineFor(day.dow, day.dom), ...googleFor(day.dow, day.dom)],
       headBg: day.today ? '#232135' : '#1c1e2b',
       headFg: day.today ? 'var(--color-accent-200)' : 'var(--color-neutral-400)',
-      mine: mineFor(day.dow, day.dom),
+      mine: [...mineFor(day.dow, day.dom), ...googleFor(day.dow, day.dom)],
       classes: day.events.filter(e => e.kind === 'class').map(e => {
         const c = cs0.find(x => e.title.indexOf(x.code) === 0);
         return { ...e, color: c ? c.color : 'var(--color-neutral-500)',
@@ -2001,7 +2083,7 @@ class Component extends DCLogic {
       }),
       study: day.events.filter(e => e.kind === 'study'),
       dues: day.events.filter(e => e.kind === 'due'),
-      agenda: [...day.events, ...mineFor(day.dow, day.dom)].sort((a, b) => a.row - b.row).map(e => {
+      agenda: [...day.events, ...mineFor(day.dow, day.dom), ...googleFor(day.dow, day.dom)].sort((a, b) => a.row - b.row).map(e => {
         const c = cs0.find(x => e.title.indexOf(x.code) === 0 || e.sub === x.code);
         const cbg = c ? 'color-mix(in srgb, ' + c.color + ' 16%, #1e2030)' : '#1e2030';
         const cedge = c ? 'inset 0 0 0 1px color-mix(in srgb, ' + c.color + ' 45%, #1e2030)' : 'inset 0 0 0 1px #2b2e3b';
@@ -2082,7 +2164,9 @@ class Component extends DCLogic {
         { time: '4:00', title: 'Essay outline', sub: 'Study block · 2h', mark: accent, fg: 'var(--color-accent-200)' },
         { time: '7:30', title: 'Problem Set 3', sub: 'Study block · 1.5h', mark: accent, fg: 'var(--color-accent-200)' }
       ].concat(mineFor('TUE', '1').map(e => ({ time: e.time.replace(/[ap]$/, ''), title: e.title,
-        sub: e.sub, mark: 'var(--color-neutral-500)', fg: 'var(--color-neutral-200)' }))),
+        sub: e.sub, mark: 'var(--color-neutral-500)', fg: 'var(--color-neutral-200)' })))
+        .concat(googleFor('TUE', '1').map(e => ({ time: e.time, title: e.title, sub: e.sub,
+          mark: '#4285f4', fg: 'var(--color-neutral-200)' }))),
       dayBlocks: [
         { time: '9:30', title: 'BIO 151 lecture', code: 'BIO 151', sub: 'Bell 204', bg: '#1e2030', edge: 'inset 0 0 0 1px #2b2e3b', fg: 'var(--color-neutral-200)' },
         { time: '11:00', title: 'CS 314 lecture', code: 'CS 314', sub: 'Kemp 118 · PS3 walkthrough', bg: '#1e2030', edge: 'inset 0 0 0 1px #2b2e3b', fg: 'var(--color-neutral-200)' },

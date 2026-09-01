@@ -2,6 +2,16 @@
 
 Runway is a coursework dashboard with a real Blackboard Learn connection backend.
 
+## Google Calendar setup
+
+1. In Google Cloud Console, create or select a project and enable the Google Calendar API.
+2. Configure the OAuth consent screen and create a **Web application** OAuth client.
+3. Add `https://YOUR_RUNWAY_HOST/api/google-calendar/callback` as an authorized redirect URI (use `http://localhost:3000/api/google-calendar/callback` for local development).
+4. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `APP_ORIGIN`, and `TOKEN_ENCRYPTION_KEY` in the environment.
+5. Open Runway Settings and choose **Connect Google Calendar**.
+
+Runway requests only `calendar.readonly`. OAuth runs on Google's page, access and refresh tokens are encrypted at rest, and synchronized events appear in the Today/Week calendar without allowing Runway to edit or delete Google events.
+
 ## Blackboard setup
 
 1. Register a REST application in the [Blackboard Developer Portal](https://developer.blackboard.com/).
@@ -13,6 +23,17 @@ Runway is a coursework dashboard with a real Blackboard Learn connection backend
 The Settings screen accepts the institution's real Learn hostname. Authorization happens on the institution's Blackboard page. Runway exchanges the returned authorization code on the server, encrypts tokens at rest with AES-256-GCM, and syncs the authorized user's profile, memberships, courses, top-level course content, announcements, gradebook columns, and grades.
 
 ## API
+
+### Google Calendar
+
+- `GET /api/google-calendar/status` — connection metadata only
+- `POST /api/google-calendar/connect` — create a Google OAuth authorization URL
+- `GET /api/google-calendar/callback` — exchange the authorization code and run the first sync
+- `POST /api/google-calendar/sync` — refresh calendars and events
+- `GET /api/google-calendar/data` — return the latest server-side snapshot
+- `DELETE /api/google-calendar/connection` — remove the saved connection and tokens
+
+### Blackboard
 
 - `GET /api/blackboard/status` — public connection metadata only
 - `POST /api/blackboard/connect` — validate a Learn hostname and create an OAuth authorization URL

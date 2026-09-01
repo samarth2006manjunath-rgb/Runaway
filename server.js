@@ -4,6 +4,7 @@ import { stat } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BlackboardClient, authorizationUrl, exchangeCode, normalizeLearnUrl } from './lib/blackboard.js';
+import { GoogleCalendarClient, exchangeGoogleCode, googleAuthorizationUrl } from './lib/google-calendar.js';
 import { ConnectionStore } from './lib/store.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
@@ -11,12 +12,15 @@ const port = Number(process.env.PORT || 3000);
 const appOrigin = (process.env.APP_ORIGIN || `http://localhost:${port}`).replace(/\/$/, '');
 const clientId = process.env.BLACKBOARD_CLIENT_ID;
 const clientSecret = process.env.BLACKBOARD_CLIENT_SECRET;
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const encryptionKey = process.env.TOKEN_ENCRYPTION_KEY;
-if (!clientId || !clientSecret || !encryptionKey) {
-  console.error('Missing BLACKBOARD_CLIENT_ID, BLACKBOARD_CLIENT_SECRET, or TOKEN_ENCRYPTION_KEY');
+if (!encryptionKey) {
+  console.error('Missing TOKEN_ENCRYPTION_KEY');
   process.exit(1);
 }
 const store = new ConnectionStore(join(root, 'data', 'connection.enc.json'), encryptionKey);
+const googleStore = new ConnectionStore(join(root, 'data', 'google-calendar.enc.json'), encryptionKey);
 const pendingStates = new Map();
 
 function json(res, status, body) {
@@ -62,11 +66,72 @@ function client(connection) {
   });
 }
 
+function googleClient(connection) {
+  return new GoogleCalendarClient({ connection, clientId: googleClientId, clientSecret: googleClientSecret, saveConnection: value => googleStore.write(value) });
+}
+
+function publicGoogleConnection(connection) {
+  if (!connection?.accessToken) return { connected: false, configured: Boolean(googleClientId && googleClientSecret) };
+  return {
+    connected: true,
+    configured: true,
+    calendarCount: connection.snapshot?.calendars?.length || 0,
+    eventCount: connection.snapshot?.events?.length || 0,
+    syncedAt: connection.snapshot?.syncedAt || null,
+    expired: connection.expiresAt <= Date.now() && !connection.refreshToken
+  };
+}
+
 async function api(req, res, url) {
+  if (url.pathname.startsWith('/api/google-calendar/') && (!googleClientId || !googleClientSecret)) {
+    return json(res, 503, { error: 'Google Calendar OAuth is not configured on this server' });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/google-calendar/status') {
+    return json(res, 200, publicGoogleConnection(await googleStore.read()));
+  }
+  if (req.method === 'POST' && url.pathname === '/api/google-calendar/connect') {
+    const state = randomBytes(32).toString('hex');
+    pendingStates.set(`google:${createHash('sha256').update(state).digest('hex')}`, { expiresAt: Date.now() + 10 * 60_000 });
+    const redirectUri = `${appOrigin}/api/google-calendar/callback`;
+    return json(res, 200, { authorizationUrl: googleAuthorizationUrl({ clientId: googleClientId, redirectUri, state }) });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/google-calendar/callback') {
+    const state = url.searchParams.get('state') || '';
+    const key = `google:${createHash('sha256').update(state).digest('hex')}`;
+    const pending = pendingStates.get(key);
+    pendingStates.delete(key);
+    if (!pending || pending.expiresAt < Date.now() || !url.searchParams.get('code')) {
+      res.writeHead(302, { location: '/?googleCalendar=error' }); return res.end();
+    }
+    const tokens = await exchangeGoogleCode({ clientId: googleClientId, clientSecret: googleClientSecret,
+      code: url.searchParams.get('code'), redirectUri: `${appOrigin}/api/google-calendar/callback` });
+    const connection = { ...tokens, connectedAt: new Date().toISOString() };
+    connection.snapshot = await googleClient(connection).sync();
+    await googleStore.write(connection);
+    res.writeHead(302, { location: '/?googleCalendar=connected' }); return res.end();
+  }
+  if (req.method === 'POST' && url.pathname === '/api/google-calendar/sync') {
+    const connection = await googleStore.read();
+    if (!connection?.accessToken) return json(res, 409, { error: 'Google Calendar is not connected' });
+    connection.snapshot = await googleClient(connection).sync();
+    await googleStore.write(connection);
+    return json(res, 200, { ...publicGoogleConnection(connection), snapshot: connection.snapshot });
+  }
+  if (req.method === 'GET' && url.pathname === '/api/google-calendar/data') {
+    const connection = await googleStore.read();
+    if (!connection?.accessToken) return json(res, 409, { error: 'Google Calendar is not connected' });
+    return json(res, 200, connection.snapshot || { calendars: [], events: [] });
+  }
+  if (req.method === 'DELETE' && url.pathname === '/api/google-calendar/connection') {
+    await googleStore.clear();
+    return json(res, 200, { connected: false });
+  }
   if (req.method === 'GET' && url.pathname === '/api/blackboard/status') {
+    if (!clientId || !clientSecret) return json(res, 200, { connected: false, configured: false });
     return json(res, 200, publicConnection(await store.read()));
   }
   if (req.method === 'POST' && url.pathname === '/api/blackboard/connect') {
+    if (!clientId || !clientSecret) return json(res, 503, { error: 'Blackboard OAuth is not configured on this server' });
     const input = await body(req);
     const learnUrl = normalizeLearnUrl(input.learnUrl);
     const state = randomBytes(32).toString('hex');
