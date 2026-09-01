@@ -617,17 +617,9 @@ a:hover { color: var(--color-accent-200); }
                   </div>
                 </div>
 
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:8px;background:#1b1d29;box-shadow:inset 0 0 0 1px #24273a;margin-bottom:22px">
-                  <span style="font:600 9.5px var(--font-heading);letter-spacing:0.1em;text-transform:uppercase;color:var(--color-neutral-700);margin-right:4px">Prototype states</span>
-                  <sc-for list="{{ flowStates }}" as="f" hint-placeholder-count="6">
-                    <sc-if value="{{ f.active }}" hint-placeholder-val="{{ true }}">
-                      <button onClick="{{ f.onClick }}" style="font:500 11px var(--font-heading);padding:5px 10px;border-radius:100px;cursor:pointer;background:#2b2741;color:var(--color-accent-200);border:1px solid var(--color-accent-600)">{{ f.label }}</button>
-                    </sc-if>
-                    <sc-if value="{{ f.inactive }}" hint-placeholder-val="{{ false }}">
-                      <button onClick="{{ f.onClick }}" style="font:500 11px var(--font-heading);padding:5px 10px;border-radius:100px;cursor:pointer;background:transparent;color:var(--color-neutral-600);border:1px solid #33364500" style-hover="color:var(--color-neutral-300);border-color:#3f424d">{{ f.label }}</button>
-                    </sc-if>
-                  </sc-for>
-                </div>
+                <sc-if value="{{ connectionError }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:11px 13px;border-radius:8px;background:#2a2231;box-shadow:inset 0 0 0 1px #6d405d;margin-bottom:18px;font-size:12.5px;color:#e7b8d4">{{ connectionError }}</div>
+                </sc-if>
 
                 <!-- state: not connected -->
                 <sc-if value="{{ connOff }}" hint-placeholder-val="{{ true }}">
@@ -656,38 +648,14 @@ a:hover { color: var(--color-accent-200); }
                   <div style="padding:24px;border-radius:12px;background:#1e2030;box-shadow:inset 0 0 0 1px #2b2e3b">
                     <div style="font:500 17px var(--font-heading);margin-bottom:5px">Find your school</div>
                     <p style="font-size:12.5px;color:var(--color-neutral-500);margin:0 0 16px;max-width:52ch">Each institution runs its own Blackboard. Pick yours so Runway knows which host to sign you in against.</p>
-                    <div style="display:flex;align-items:center;gap:9px;padding:10px 13px;border-radius:8px;background:#171926;box-shadow:inset 0 0 0 1px #333645;margin-bottom:14px">
-                      <i class="ph ph-magnifying-glass" style="font-size:16px;color:var(--color-neutral-600)"></i>
-                      <span style="font-size:13.5px;color:var(--color-neutral-300)">Rowan</span>
-                      <span style="margin-left:auto;font-size:11px;color:var(--color-neutral-700)">4 matches</span>
-                    </div>
-                    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:18px">
-                      <sc-for list="{{ schools }}" as="s" hint-placeholder-count="4">
-                        <sc-if value="{{ s.selected }}" hint-placeholder-val="{{ false }}">
-                          <button onClick="{{ s.onClick }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;border-radius:8px;cursor:pointer;background:#252239;border:1px solid var(--color-accent-600);color:var(--color-text)">
-                            <i class="ph ph-check-circle" style="font-size:17px;color:var(--color-accent-300)"></i>
-                            <span style="flex:1;min-width:0">
-                              <span style="display:block;font:500 13.5px var(--font-heading)">{{ s.name }}</span>
-                              <span style="display:block;font-size:11.5px;color:var(--color-neutral-500)">{{ s.host }}</span>
-                            </span>
-                            <span style="flex:none;font-size:11px;color:var(--color-accent-300)">{{ s.hint }}</span>
-                          </button>
-                        </sc-if>
-                        <sc-if value="{{ s.unselected }}" hint-placeholder-val="{{ true }}">
-                          <button onClick="{{ s.onClick }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;border-radius:8px;cursor:pointer;background:transparent;border:1px solid #2b2e3b;color:var(--color-text)" style-hover="background:#212330;border-color:var(--color-neutral-700)">
-                            <i class="ph ph-buildings" style="font-size:17px;color:var(--color-neutral-600)"></i>
-                            <span style="flex:1;min-width:0">
-                              <span style="display:block;font:500 13.5px var(--font-heading)">{{ s.name }}</span>
-                              <span style="display:block;font-size:11.5px;color:var(--color-neutral-500)">{{ s.host }}</span>
-                            </span>
-                            <span style="flex:none;font-size:11px;color:var(--color-neutral-600)">{{ s.hint }}</span>
-                          </button>
-                        </sc-if>
-                      </sc-for>
+                    <label style="display:block;font:600 10px var(--font-heading);letter-spacing:0.08em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:7px">Blackboard Learn address</label>
+                    <div style="display:flex;align-items:center;gap:9px;padding:4px 13px;border-radius:8px;background:#171926;box-shadow:inset 0 0 0 1px #333645;margin-bottom:18px">
+                      <i class="ph ph-globe" style="font-size:16px;color:var(--color-neutral-600)"></i>
+                      <input value="{{ schoolHostInput }}" onChange="{{ schoolHostChanged }}" placeholder="blackboard.yourschool.edu" style="width:100%;padding:9px 0;background:transparent;border:0;outline:0;color:var(--color-neutral-200);font:400 13.5px var(--font-body)" />
                     </div>
                     <div style="display:flex;align-items:center;gap:12px">
                       <sc-if value="{{ schoolPicked }}" hint-placeholder-val="{{ false }}">
-                        <button onClick="{{ toOauth }}" style="font:500 13px var(--font-heading);padding:10px 18px;border-radius:7px;cursor:pointer;background:transparent;border:1px solid var(--color-accent-600);color:var(--color-accent-200)" style-hover="background:#332e4d">Continue to {{ schoolName }}</button>
+                        <button onClick="{{ toOauth }}" style="font:500 13px var(--font-heading);padding:10px 18px;border-radius:7px;cursor:pointer;background:transparent;border:1px solid var(--color-accent-600);color:var(--color-accent-200)" style-hover="background:#332e4d">Continue to Blackboard</button>
                       </sc-if>
                       <sc-if value="{{ noSchool }}" hint-placeholder-val="{{ true }}">
                         <button style="font:500 13px var(--font-heading);padding:10px 18px;border-radius:7px;background:transparent;border:1px solid #3f424d;color:var(--color-neutral-600);opacity:0.45;cursor:default">Continue</button>
@@ -769,10 +737,10 @@ a:hover { color: var(--color-accent-200); }
                       </div>
                       <div style="flex:1;min-width:0">
                         <div style="font:500 16px var(--font-heading);margin-bottom:3px">Blackboard · {{ schoolName }}</div>
-                        <div style="font-size:12px;color:var(--color-neutral-500)">{{ schoolHost }} · j.okafor@rowanstate.edu</div>
+                        <div style="font-size:12px;color:var(--color-neutral-500)">{{ schoolHost }} · {{ bbUserLabel }}</div>
                         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--color-neutral-500)">
                           <span style="width:6px;height:6px;border-radius:100px;background:var(--color-accent)"></span>
-                          Syncing every 15 minutes · last sync 4 minutes ago
+                          {{ syncStatus }}
                         </div>
                       </div>
                       <div style="flex:none;display:flex;gap:8px">
@@ -1586,18 +1554,62 @@ a:hover { color: var(--color-accent-200); }
 <script type="text/x-dc" data-dc-script data-props="{&quot;homeLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Runway&quot;,&quot;Agenda&quot;,&quot;Courses&quot;],&quot;default&quot;:&quot;Runway&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Home&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Comfortable&quot;,&quot;Compact&quot;],&quot;default&quot;:&quot;Comfortable&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Home&quot;},&quot;showEstimates&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Home&quot;}}">
 class Component extends DCLogic {
   state = { screen: 'today', layout: null, density: null, thread: 'cs1', filter: 'Needs action',
-            conn: 'off', school: null, importing: 0, askDisconnect: false, courseSync: {} };
+            conn: 'off', school: null, schoolHostInput: '', importing: 0, askDisconnect: false,
+            courseSync: {}, connectionError: '' };
+
+  async componentDidMount() {
+    const requested = new URLSearchParams(location.search).get('blackboard');
+    if (requested === 'error') this.setState({ screen: 'settings', connectionError: 'Blackboard did not complete authorization. Please try again.' });
+    try {
+      const response = await fetch('/api/blackboard/status');
+      const status = await response.json();
+      if (status.connected) {
+        const host = new URL(status.learnUrl).host;
+        this.setState({ screen: requested ? 'settings' : this.state.screen, conn: status.expired ? 'error' : 'on', school: host,
+          schoolHostInput: host, syncedAt: status.syncedAt, courseCount: status.courseCount, bbUser: status.user,
+          bbCourses: status.courses || [] });
+      }
+    } catch (_) {
+      this.setState({ connectionError: 'The Blackboard backend is unavailable.' });
+    }
+  }
 
   setConn(step, extra) { this.setState({ conn: step, ...(extra || {}) }); }
 
-  runImport() {
+  async runImport() {
     this.setState({ conn: 'syncing', importing: 0 });
-    clearInterval(this._imp);
-    this._imp = setInterval(() => {
-      const n = this.state.importing + 1;
-      if (n >= 5) { clearInterval(this._imp); this.setState({ conn: 'on', importing: 5 }); }
-      else this.setState({ importing: n });
-    }, 420);
+    try {
+      const response = await fetch('/api/blackboard/sync', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Blackboard sync failed');
+      this.setState({ conn: 'on', importing: 5, syncedAt: result.syncedAt, courseCount: result.courseCount,
+        bbUser: result.user, bbCourses: result.courses || [], connectionError: '' });
+    } catch (error) {
+      this.setState({ conn: 'error', connectionError: error.message });
+    }
+  }
+
+  async connectBlackboard() {
+    this.setState({ conn: 'oauth', connectionError: '' });
+    try {
+      const response = await fetch('/api/blackboard/connect', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ learnUrl: this.state.schoolHostInput }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not start Blackboard authorization');
+      location.assign(result.authorizationUrl);
+    } catch (error) {
+      this.setState({ conn: 'picker', connectionError: error.message });
+    }
+  }
+
+  async disconnectBlackboard() {
+    try {
+      const response = await fetch('/api/blackboard/connection', { method: 'DELETE' });
+      if (!response.ok) throw new Error('Could not disconnect Blackboard');
+      this.setState({ conn: 'off', school: null, schoolHostInput: '', askDisconnect: false, importing: 0, connectionError: '' });
+    } catch (error) {
+      this.setState({ connectionError: error.message });
+    }
   }
 
   componentWillUnmount() { clearInterval(this._imp); }
@@ -1707,14 +1719,7 @@ class Component extends DCLogic {
 
   connectionVals() {
     const S = this.state;
-    const schools = [
-      { name: 'Rowan State University', host: 'rowanstate.blackboard.com', hint: 'SSO · Shibboleth' },
-      { name: 'Rowan State — Continuing Ed', host: 'ce.rowanstate.blackboard.com', hint: 'Direct login' },
-      { name: 'Rowley Community College', host: 'blackboard.rowley.edu', hint: 'SSO · Microsoft' },
-      { name: 'Rowanton Institute of Tech', host: 'learn.rowanton.edu', hint: 'SSO · Google' }
-    ].map(s => ({ ...s, selected: S.school === s.name, unselected: S.school !== s.name,
-      onClick: () => this.setState({ school: s.name }) }));
-    const chosen = schools.find(s => s.selected) || null;
+    const host = (S.schoolHostInput || S.school || '').trim();
 
     const providers = ['Blackboard', 'Canvas', 'Moodle', 'Brightspace'].map(p => ({
       label: p, primary: p === 'Blackboard', secondary: p !== 'Blackboard',
@@ -1738,13 +1743,9 @@ class Component extends DCLogic {
       { icon: 'ph-prohibit', label: 'Submitting work, posting, or changing anything', note: 'Never' }
     ];
 
-    const courseSync = [
-      { code: 'CS 314', name: 'Data Structures', items: '18 items' },
-      { code: 'ENG 210', name: 'Literary Analysis', items: '11 items' },
-      { code: 'BIO 151', name: 'Cell Biology', items: '23 items' },
-      { code: 'STAT 220', name: 'Applied Statistics', items: '14 items' },
-      { code: 'HIST 105', name: 'Modern World', items: '9 items' }
-    ].map(c => {
+    const courseSync = (S.bbCourses || []).map(c => ({
+      code: c.courseId || 'Course', name: c.name, items: `${c.itemCount || 0} items`
+    })).map(c => {
       const on = S.courseSync[c.code] !== false;
       return { ...c, on, off: !on,
         onClick: () => this.setState({ courseSync: { ...S.courseSync, [c.code]: !on } }) };
@@ -1757,36 +1758,31 @@ class Component extends DCLogic {
       { when: 'Yesterday 8:12pm', text: 'STAT 220 Quiz 2 window added', tone: 'var(--color-neutral-400)' }
     ];
 
-    const flowStates = [
-      { key: 'off', label: 'Not connected' }, { key: 'picker', label: 'Pick school' },
-      { key: 'oauth', label: 'Authorize' }, { key: 'syncing', label: 'Importing' },
-      { key: 'on', label: 'Connected' }, { key: 'error', label: 'Needs reconnect' }
-    ].map(f => ({ label: f.label, active: S.conn === f.key, inactive: S.conn !== f.key,
-      onClick: () => (f.key === 'syncing' ? this.runImport() : this.setConn(f.key, { askDisconnect: false })) }));
-
     return {
       isSettings: S.screen === 'settings',
       connOff: S.conn === 'off', connPicker: S.conn === 'picker', connOauth: S.conn === 'oauth',
       connSyncing: S.conn === 'syncing', connOn: S.conn === 'on', connError: S.conn === 'error',
       connLive: S.conn === 'on' || S.conn === 'error',
       askDisconnect: S.askDisconnect,
-      schools, providers, steps, scopes, courseSync, log, flowStates,
-      schoolName: chosen ? chosen.name : 'Rowan State University',
-      schoolHost: chosen ? chosen.host : 'rowanstate.blackboard.com',
-      schoolPicked: !!chosen, noSchool: !chosen,
+      providers, steps, scopes, courseSync, log,
+      schoolName: host || 'Blackboard Learn', schoolHost: host || 'blackboard.yourschool.edu',
+      schoolHostInput: S.schoolHostInput || '', schoolHostChanged: (e) => this.setState({ schoolHostInput: e.target.value }),
+      schoolPicked: !!host, noSchool: !host, connectionError: S.connectionError || '',
+      bbUserLabel: S.bbUser?.contact?.email || S.bbUser?.userName || S.bbUser?.name?.given || 'Blackboard user',
+      syncStatus: S.syncedAt ? `Last synced ${new Date(S.syncedAt).toLocaleString()}` : 'Ready to sync',
       importPct: Math.round((S.importing / 5) * 100),
       goSettings: () => this.setState({ screen: 'settings' }),
       goCourses: () => this.setState({ screen: 'courses' }),
       startConnect: () => this.setConn('picker'),
-      toOauth: () => this.setConn('oauth'),
+      toOauth: () => this.connectBlackboard(),
       backToPicker: () => this.setConn('picker'),
-      authorize: () => this.runImport(),
+      authorize: () => this.connectBlackboard(),
       cancelOauth: () => this.setConn('off', { school: null }),
-      reconnect: () => this.setConn('oauth'),
+      reconnect: () => this.connectBlackboard(),
       syncNow: () => this.runImport(),
       openDisconnect: () => this.setState({ askDisconnect: true }),
       closeDisconnect: () => this.setState({ askDisconnect: false }),
-      confirmDisconnect: () => this.setState({ conn: 'off', school: null, askDisconnect: false, importing: 0 })
+      confirmDisconnect: () => this.disconnectBlackboard()
     };
   }
 
